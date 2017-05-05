@@ -1,0 +1,11 @@
+<config>
+  <prop3>
+    <prop4 attr="value3">1</prop4>
+    <prop4 attr="value4">2</prop4>
+    <prop4 attr="value4">3</prop4>
+    <prop4 attr="value4">4</prop4>
+    <prop4 attr="value4">5</prop4>
+    <prop4 attr="value4">6</prop4>
+    <prop4 attr="value4">7</prop4>
+  </prop3>
+</config>

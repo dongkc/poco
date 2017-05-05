@@ -14,28 +14,40 @@ using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
 
-int main(int argc, char *argv[])
+int XMLArrayLength(std::string xml_path, std::string xml_key)
 {
-  AutoPtr<XMLConfiguration> pConf(new XMLConfiguration("test.xml"));
+  AutoPtr<XMLConfiguration> pConf(new XMLConfiguration(xml_path));
+
   string value;
-  int num = 0;
-  for (int i = 1; i < 10; ++i) {
-    string key = string("prop3.prop4[" + NumberFormatter::format(i) + "][@attr]");
+  int len = 0;
+  for (int i = 0; i < 100; ++i) {
+    string key = xml_key + "[" + NumberFormatter::format(i) + "]";
     try {
-    value = pConf->getString(key);
+      if (i == 0) {
+        value = pConf->getString(xml_key);
+      } else {
+        value = pConf->getString(key);
+      }
     } catch(std::exception& e) {
-      LOG(INFO) << "key: " << key << " not found";
-      num = i;
+      len = i;
       break;
     }
-    LOG(INFO) << "key: " << key;
   }
-  LOG(INFO) << "num: " << num;
 
+  return len;
+}
+
+int main(int argc, char *argv[])
+{
+  int len = XMLArrayLength("test.xml", "prop3.prop4");
+  LOG(INFO) << "len: " << len;
+
+  AutoPtr<XMLConfiguration> pConf(new XMLConfiguration("test.xml"));
   std::string prop3 = pConf->getString("prop3.prop4[@attr]");
   LOG(INFO) << "prop3: " << prop3;
   prop3 = pConf->getString("prop3.prop4[2][@attr]");
   LOG(INFO) << "prop3: " << prop3;
+
   return 0;
 }
 
