@@ -84,7 +84,7 @@ int main1(int argc, char *argv[])
     }
 
     catch (std::exception& e) {
-      LOG(INFO) << "Exception catched";
+      LOG(INFO) << e.what();
       Thread::sleep(2000);
     }
   }
