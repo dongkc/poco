@@ -43,3 +43,11 @@ TARGET_LINK_LIBRARIES(hex
                       PocoXML
                       PocoNet
                       PocoFoundation)
+
+ADD_EXECUTABLE(data data.cpp)
+TARGET_LINK_LIBRARIES(data
+                      glog
+                      PocoUtil
+                      PocoXML
+                      PocoNet
+                      PocoFoundation)
