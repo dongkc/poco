@@ -35,3 +35,11 @@ TARGET_LINK_LIBRARIES(xml
                       PocoXML
                       PocoNet
                       PocoFoundation)
+
+ADD_EXECUTABLE(hex DataEncoder.cpp)
+TARGET_LINK_LIBRARIES(hex
+                      glog
+                      PocoUtil
+                      PocoXML
+                      PocoNet
+                      PocoFoundation)

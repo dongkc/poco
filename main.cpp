@@ -37,7 +37,7 @@ int XMLArrayLength(std::string xml_path, std::string xml_key)
   return len;
 }
 
-int main(int argc, char *argv[])
+int main1(int argc, char *argv[])
 {
   int len = XMLArrayLength("test.xml", "prop3.prop4");
   LOG(INFO) << "len: " << len;
@@ -51,11 +51,11 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-int main1(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
   while (1) {
     try {
-      SocketAddress addr("127.0.0.1", "6000");
+      SocketAddress addr("192.168.10.254", "8071");
       StreamSocket socket;
 
       socket.connect(addr);
