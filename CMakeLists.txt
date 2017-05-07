@@ -35,3 +35,11 @@ TARGET_LINK_LIBRARIES(xml
                       PocoXML
                       PocoNet
                       PocoFoundation)
+
+ADD_EXECUTABLE(service service.cpp)
+TARGET_LINK_LIBRARIES(service
+                      glog
+                      PocoUtil
+                      PocoXML
+                      PocoNet
+                      PocoFoundation)
