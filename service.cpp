@@ -29,9 +29,8 @@ class SampleTask: public Task
     void runTask()
     {
       Application& app = Application::instance();
-      while (1)
+      while (!sleep(5000))
       {
-        sleep(5000);
         Application::instance().logger().information("busy doing nothing... " + DateTimeFormatter::format(app.uptime()));
       }
     }
