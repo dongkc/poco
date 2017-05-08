@@ -6,22 +6,15 @@
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/StreamSocket.h"
 #include "RFIDEventListener.h"
-#include "message.h"
 
 class RFIDWorker
 {
 public:
   RFIDWorker();
 
-  bool init(RFIDEventListener* pRFIDEvtListener);
-
   bool open(std::string ip, std::string port);
 
   void close();
-
-  void process(card_msg_result_t* msg);
-
-  void process(card_msg_collect_t* msg);
 
 protected:
   void runActivity();
@@ -40,7 +33,6 @@ private:
   int recv_bytes;
   Poco::Net::SocketAddress* addr;
   Poco::Net::StreamSocket socket;
-  RFIDEventListener* m_pRFIDEvtListener;
 
   Poco::Activity<RFIDWorker> _activity;
 };
