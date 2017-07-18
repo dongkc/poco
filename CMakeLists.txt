@@ -59,3 +59,11 @@ TARGET_LINK_LIBRARIES(service
                       PocoXML
                       PocoNet
                       PocoFoundation)
+
+ADD_EXECUTABLE(websocket WebSocketServer.cpp)
+TARGET_LINK_LIBRARIES(websocket
+                      glog
+                      PocoUtil
+                      PocoXML
+                      PocoNet
+                      PocoFoundation)
