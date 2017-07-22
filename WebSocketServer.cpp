@@ -5,7 +5,7 @@
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerParams.h"
-#include "Poco/Net/ServerSocket.h"
+#include "Poco/Net/SecureServerSocket.h"
 #include "Poco/Net/WebSocket.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/Util/ServerApplication.h"
@@ -15,74 +15,15 @@
 #include "Poco/Format.h"
 #include "Poco/Net/HTTPSStreamFactory.h"
 #include "Poco/Net/HTTPStreamFactory.h"
+#include "Poco/File.h"
+#include "Poco/Path.h"
 #include <iostream>
+#include "glog/logging.h"
 
-
-using Poco::Net::ServerSocket;
-using Poco::Net::WebSocket;
-using Poco::Net::WebSocketException;
-using Poco::Net::HTTPRequestHandler;
-using Poco::Net::HTTPRequestHandlerFactory;
-using Poco::Net::HTTPServer;
-using Poco::Net::HTTPServerRequest;
-using Poco::Net::HTTPResponse;
-using Poco::Net::HTTPServerResponse;
-using Poco::Net::HTTPServerParams;
-using Poco::Timestamp;
-using Poco::ThreadPool;
-using Poco::Util::ServerApplication;
-using Poco::Util::Application;
-using Poco::Util::Option;
-using Poco::Util::OptionSet;
-using Poco::Util::HelpFormatter;
-
-
-class PageRequestHandler: public HTTPRequestHandler
-{
-  public:
-    void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
-    {
-      response.setChunkedTransferEncoding(true);
-      response.setContentType("text/html");
-      std::ostream& ostr = response.send();
-      ostr << "<html>";
-      ostr << "<head>";
-      ostr << "<title>WebSocketServer</title>";
-      ostr << "<script type=\"text/javascript\">";
-      ostr << "function WebSocketTest()";
-      ostr << "{";
-      ostr << "  if (\"WebSocket\" in window)";
-      ostr << "  {";
-      ostr << "    var ws = new WebSocket(\"ws://" << request.serverAddress().toString() << "/ws\");";
-      ostr << "    ws.onopen = function()";
-      ostr << "      {";
-      ostr << "        ws.send(\"Hello, world!\");";
-      ostr << "      };";
-      ostr << "    ws.onmessage = function(evt)";
-      ostr << "      { ";
-      ostr << "        var msg = evt.data;";
-      ostr << "        alert(\"Message received: \" + msg);";
-      ostr << "        ws.close();";
-      ostr << "      };";
-      ostr << "    ws.onclose = function()";
-      ostr << "      { ";
-      ostr << "        alert(\"WebSocket closed.\");";
-      ostr << "      };";
-      ostr << "  }";
-      ostr << "  else";
-      ostr << "  {";
-      ostr << "     alert(\"This browser does not support WebSockets.\");";
-      ostr << "  }";
-      ostr << "}";
-      ostr << "</script>";
-      ostr << "</head>";
-      ostr << "<body>";
-      ostr << "  <h1>WebSocket Server</h1>";
-      ostr << "  <p><a href=\"javascript:WebSocketTest()\">Run WebSocket Script</a></p>";
-      ostr << "</body>";
-      ostr << "</html>";
-    }
-};
+using namespace std;
+using namespace Poco;
+using namespace Poco::Net;
+using namespace Poco::Util;
 
 
 class WebSocketRequestHandler: public HTTPRequestHandler
@@ -90,19 +31,19 @@ class WebSocketRequestHandler: public HTTPRequestHandler
   public:
     void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
     {
-      Application& app = Application::instance();
       try
       {
         WebSocket ws(request, response);
         ws.setReceiveTimeout(Poco::Timespan(10, 0, 0, 0, 0));
-        app.logger().information("WebSocket connection established.");
-        char buffer[1024];
+        LOG(INFO) << "WebSocket connection established.";
+        char buffer[10240000];
         int flags;
         int n;
         do
         {
           n = ws.receiveFrame(buffer, sizeof(buffer), flags);
-          app.logger().information(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
+          LOG(INFO) << "Frame received lenght: " << n << " flags: " << flags;
+
           if ((flags & WebSocket::FRAME_OP_BITMASK) == WebSocket::FRAME_OP_PING) {
             ws.sendFrame(buffer, n, WebSocket::FRAME_OP_PONG);
           }
@@ -111,11 +52,11 @@ class WebSocketRequestHandler: public HTTPRequestHandler
           }
         }
         while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
-        app.logger().information("WebSocket connection closed.");
+        LOG(INFO) << "WebSocket connection closed.";
       }
       catch (WebSocketException& exc)
       {
-        app.logger().log(exc);
+        LOG(INFO) << "Exception: " << exc.what();
         switch (exc.code())
         {
           case WebSocket::WS_ERR_HANDSHAKE_UNSUPPORTED_VERSION:
@@ -139,25 +80,21 @@ class RequestHandlerFactory: public HTTPRequestHandlerFactory
   public:
     HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
     {
-      Application& app = Application::instance();
-      app.logger().information("Request from "
-          + request.clientAddress().toString()
-          + ": "
-          + request.getMethod()
-          + " "
-          + request.getURI()
-          + " "
-          + request.getVersion());
+      LOG(INFO) << "Request from "
+                <<  request.clientAddress().toString()
+                <<  ": "
+                <<  request.getMethod()
+                <<  " "
+                <<  request.getURI()
+                <<  " "
+                <<  request.getVersion();
 
       for (HTTPServerRequest::ConstIterator it = request.begin(); it != request.end(); ++it)
       {
-        app.logger().information(it->first + ": " + it->second);
+        LOG(INFO) << it->first << ": " << it->second;
       }
 
-      if(request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0)
-        return new WebSocketRequestHandler;
-      else
-        return new PageRequestHandler;
+      return new WebSocketRequestHandler;
     }
 };
 
@@ -182,6 +119,24 @@ class WebSocketServer: public Poco::Util::ServerApplication
     {
       loadConfiguration(); // load default configuration files, if present
       ServerApplication::initialize(self);
+      logger().information("starting up");
+
+      if (config().getBool("application.runAsService", false)) {
+        Path path(config().getString("application.dir"));
+        path.pushDirectory("logs");
+        File f(path);
+        if (!f.exists()) {
+          f.createDirectory();
+        }
+
+        string base_name = config().getString("application.baseName");
+        path.setFileName(base_name + "_");
+
+        google::InitGoogleLogging(base_name.c_str());
+        google::SetLogDestination(google::GLOG_INFO, path.toString().c_str());
+      }
+
+      printProperties("");
     }
 
     void uninitialize()
@@ -227,18 +182,37 @@ class WebSocketServer: public Poco::Util::ServerApplication
         // get parameters from configuration file
         unsigned short port = (unsigned short) config().getInt("WebSocketServer.port", 9980);
 
-        // set-up a server socket
-        ServerSocket svs(port);
-        // set-up a HTTPServer instance
+        SecureServerSocket svs(port);
         HTTPServer srv(new RequestHandlerFactory, svs, new HTTPServerParams);
-        // start the HTTPServer
         srv.start();
-        // wait for CTRL-C or kill
+
         waitForTerminationRequest();
-        // Stop the HTTPServer
+
         srv.stop();
       }
       return Application::EXIT_OK;
+    }
+
+    void printProperties(const std::string& base)
+    {
+      AbstractConfiguration::Keys keys;
+      config().keys(base, keys);
+      if (keys.empty()) {
+        if (config().hasProperty(base)) {
+          std::string msg;
+          msg.append(base);
+          msg.append(" = ");
+          msg.append(config().getString(base));
+          LOG(INFO) << msg;
+        }
+      } else {
+        for (AbstractConfiguration::Keys::const_iterator it = keys.begin(); it != keys.end(); ++it) {
+          std::string fullKey = base;
+          if (!fullKey.empty()) fullKey += '.';
+          fullKey.append(*it);
+          printProperties(fullKey);
+        }
+      }
     }
 
   private:
