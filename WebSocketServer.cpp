@@ -167,14 +167,14 @@ class WebSocketServer: public Poco::Util::ServerApplication
   public:
     WebSocketServer(): _helpRequested(false)
   {
-		Poco::Net::initializeSSL();
-		Poco::Net::HTTPStreamFactory::registerFactory();
-		Poco::Net::HTTPSStreamFactory::registerFactory();
+    Poco::Net::initializeSSL();
+    Poco::Net::HTTPStreamFactory::registerFactory();
+    Poco::Net::HTTPSStreamFactory::registerFactory();
   }
 
     ~WebSocketServer()
     {
-		Poco::Net::uninitializeSSL();
+      Poco::Net::uninitializeSSL();
     }
 
   protected:
