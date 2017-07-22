@@ -66,4 +66,5 @@ TARGET_LINK_LIBRARIES(websocket
                       PocoUtil
                       PocoXML
                       PocoNet
+                      PocoNetSSL
                       PocoFoundation)

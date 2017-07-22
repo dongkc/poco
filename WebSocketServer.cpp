@@ -1,17 +1,3 @@
-//
-// WebSocketServer.cpp
-//
-// $Id: //poco/1.4/Net/samples/WebSocketServer/src/WebSocketServer.cpp#1 $
-//
-// This sample demonstrates the WebSocket class.
-//
-// Copyright (c) 2012, Applied Informatics Software Engineering GmbH.
-// and Contributors.
-//
-// SPDX-License-Identifier:	BSL-1.0
-//
-
-
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
@@ -27,6 +13,8 @@
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
 #include "Poco/Format.h"
+#include "Poco/Net/HTTPSStreamFactory.h"
+#include "Poco/Net/HTTPStreamFactory.h"
 #include <iostream>
 
 
@@ -50,8 +38,6 @@ using Poco::Util::HelpFormatter;
 
 
 class PageRequestHandler: public HTTPRequestHandler
-                          /// Return a HTML document with some JavaScript creating
-                          /// a WebSocket connection.
 {
   public:
     void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
@@ -100,7 +86,6 @@ class PageRequestHandler: public HTTPRequestHandler
 
 
 class WebSocketRequestHandler: public HTTPRequestHandler
-                               /// Handle a WebSocket connection.
 {
   public:
     void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
@@ -109,6 +94,7 @@ class WebSocketRequestHandler: public HTTPRequestHandler
       try
       {
         WebSocket ws(request, response);
+        ws.setReceiveTimeout(Poco::Timespan(10, 0, 0, 0, 0));
         app.logger().information("WebSocket connection established.");
         char buffer[1024];
         int flags;
@@ -117,7 +103,12 @@ class WebSocketRequestHandler: public HTTPRequestHandler
         {
           n = ws.receiveFrame(buffer, sizeof(buffer), flags);
           app.logger().information(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
-          ws.sendFrame(buffer, n, flags);
+          if ((flags & WebSocket::FRAME_OP_BITMASK) == WebSocket::FRAME_OP_PING) {
+            ws.sendFrame(buffer, n, WebSocket::FRAME_OP_PONG);
+          }
+          else {
+            ws.sendFrame(buffer, n, flags);
+          }
         }
         while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
         app.logger().information("WebSocket connection closed.");
@@ -149,7 +140,7 @@ class RequestHandlerFactory: public HTTPRequestHandlerFactory
     HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
     {
       Application& app = Application::instance();
-      app.logger().information("Request from " 
+      app.logger().information("Request from "
           + request.clientAddress().toString()
           + ": "
           + request.getMethod()
@@ -172,31 +163,18 @@ class RequestHandlerFactory: public HTTPRequestHandlerFactory
 
 
 class WebSocketServer: public Poco::Util::ServerApplication
-                       /// The main application class.
-                       ///
-                       /// This class handles command-line arguments and
-                       /// configuration files.
-                       /// Start the WebSocketServer executable with the help
-                       /// option (/help on Windows, --help on Unix) for
-                       /// the available command line options.
-                       ///
-                       /// To use the sample configuration file (WebSocketServer.properties),
-                       /// copy the file to the directory where the WebSocketServer executable
-                       /// resides. If you start the debug version of the WebSocketServer
-                       /// (WebSocketServerd[.exe]), you must also create a copy of the configuration
-                       /// file named WebSocketServerd.properties. In the configuration file, you
-                       /// can specify the port on which the server is listening (default
-                       /// 9980) and the format of the date/time string sent back to the client.
-                       ///
-                       /// To test the WebSocketServer you can use any web browser (http://localhost:9980/).
 {
   public:
     WebSocketServer(): _helpRequested(false)
   {
+		Poco::Net::initializeSSL();
+		Poco::Net::HTTPStreamFactory::registerFactory();
+		Poco::Net::HTTPSStreamFactory::registerFactory();
   }
 
     ~WebSocketServer()
     {
+		Poco::Net::uninitializeSSL();
     }
 
   protected:
